@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   Pressable,
   SafeAreaView,
@@ -17,12 +17,52 @@ const tabs = [
   { key: "home", label: "Home", icon: "home" },
   { key: "advice", label: "Advice", icon: "verified-user" },
   { key: "circles", label: "Circles", icon: "groups" },
+  { key: "game", label: "Game", icon: "sports-esports" },
 ];
 
 const safetyPledges = [
   "I will keep this space respectful and free from harassment.",
   "I understand crisis resources are available for urgent support.",
   "I agree to protect privacy inside community circles.",
+];
+
+const herQuestCards = [
+  {
+    prompt: "A friend sends a rude comment in your support circle. What should you do first?",
+    options: [
+      "Report it and save the screenshot so moderators can review it.",
+      "Reply in the same tone to defend yourself.",
+      "Ignore it and hope nobody sees it.",
+    ],
+    answer: 0,
+  },
+  {
+    prompt: "You feel overwhelmed and need a reset. What is the healthiest next move?",
+    options: [
+      "Push through without telling anyone.",
+      "Take a breathing break and message a trusted person.",
+      "Delete the app and avoid support entirely.",
+    ],
+    answer: 1,
+  },
+  {
+    prompt: "Someone asks for private details you do not feel comfortable sharing. What is the best response?",
+    options: [
+      "Pretend to agree and then share later.",
+      "Share everything to be polite.",
+      "Set a clear boundary and redirect the conversation.",
+    ],
+    answer: 2,
+  },
+  {
+    prompt: "Your goal is to build a safe community. What helps most?",
+    options: [
+      "Making everyone compete for attention.",
+      "Encouraging respect, privacy, and kind accountability.",
+      "Posting every personal detail for validation.",
+    ],
+    answer: 1,
+  },
 ];
 
 export default function HerSpaceApp() {
@@ -32,10 +72,16 @@ export default function HerSpaceApp() {
   const [email, setEmail] = useState("");
   const [selectedStage, setSelectedStage] = useState(lifeStages[0].id);
   const [acceptedPledges, setAcceptedPledges] = useState([]);
+  const [gameStarted, setGameStarted] = useState(false);
+  const [score, setScore] = useState(0);
+  const [bestScore, setBestScore] = useState(0);
+  const [questionIndex, setQuestionIndex] = useState(0);
+  const [timeLeft, setTimeLeft] = useState(30);
 
   const sectionTitle = useMemo(() => {
     if (activeTab === "advice") return "Trusted Advice Feed";
     if (activeTab === "circles") return "Community Support Circles";
+    if (activeTab === "game") return "HerSpace Quest";
     return "Your Safety + Support Dashboard";
   }, [activeTab]);
 
@@ -45,6 +91,51 @@ export default function HerSpaceApp() {
   }, [selectedStage]);
 
   const acceptedAllPledges = acceptedPledges.length === safetyPledges.length;
+  const currentQuestion = herQuestCards[questionIndex % herQuestCards.length];
+
+  useEffect(() => {
+    if (!gameStarted || timeLeft <= 0) return;
+
+    const timer = setInterval(() => {
+      setTimeLeft((prev) => {
+        if (prev <= 1) {
+          setGameStarted(false);
+          setBestScore((currentBest) => Math.max(currentBest, score));
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [gameStarted, score, timeLeft]);
+
+  const startGame = () => {
+    setScore(0);
+    setQuestionIndex(0);
+    setTimeLeft(30);
+    setGameStarted(true);
+  };
+
+  const handleAnswer = (answerIndex) => {
+    if (!gameStarted) return;
+
+    const isCorrect = answerIndex === currentQuestion.answer;
+    const nextScore = isCorrect ? score + 10 : score;
+    const nextQuestionIndex = questionIndex + 1;
+
+    setScore(nextScore);
+    setBestScore((currentBest) => Math.max(currentBest, nextScore));
+
+    if (nextQuestionIndex >= herQuestCards.length) {
+      setGameStarted(false);
+      setQuestionIndex(0);
+      setTimeLeft(30);
+      return;
+    }
+
+    setQuestionIndex(nextQuestionIndex);
+  };
 
   const togglePledge = (pledge) => {
     setAcceptedPledges((prev) => {
@@ -245,6 +336,51 @@ export default function HerSpaceApp() {
               ))}
             </View>
           )}
+
+          {activeTab === "game" && (
+            <View style={styles.gameCard}>
+              <View style={styles.gameHeaderRow}>
+                <View>
+                  <Text style={styles.gameKicker}>HerQuest</Text>
+                  <Text style={styles.gameTitle}>Safe Space Challenge</Text>
+                </View>
+                <View style={styles.scoreBadge}>
+                  <Text style={styles.scoreValue}>{score}</Text>
+                </View>
+              </View>
+
+              <View style={styles.metaRow}>
+                <Text style={styles.metaText}>Time: {timeLeft}s</Text>
+                <Text style={styles.metaText}>Best: {bestScore}</Text>
+              </View>
+
+              {!gameStarted ? (
+                <View style={styles.gameBody}>
+                  <Text style={styles.gamePrompt}>
+                    Build healthy boundaries, protect your peace, and answer each support challenge correctly.
+                  </Text>
+                  <Pressable style={styles.primaryButton} onPress={startGame}>
+                    <Text style={styles.primaryButtonText}>Start Game</Text>
+                  </Pressable>
+                </View>
+              ) : (
+                <View style={styles.gameBody}>
+                  <Text style={styles.levelLabel}>Round {questionIndex + 1}</Text>
+                  <Text style={styles.gamePrompt}>{currentQuestion.prompt}</Text>
+
+                  {currentQuestion.options.map((option, optionIndex) => (
+                    <Pressable
+                      key={option}
+                      style={styles.answerButton}
+                      onPress={() => handleAnswer(optionIndex)}
+                    >
+                      <Text style={styles.answerText}>{option}</Text>
+                    </Pressable>
+                  ))}
+                </View>
+              )}
+            </View>
+          )}
         </ScrollView>
       </LinearGradient>
     </SafeAreaView>
@@ -442,6 +578,84 @@ const styles = StyleSheet.create({
     padding: 16,
     borderWidth: 1,
     borderColor: "#CCE8DD",
+  },
+  gameCard: {
+    backgroundColor: "#12332C",
+    borderRadius: 20,
+    padding: 18,
+    borderWidth: 1,
+    borderColor: "#1D504A",
+  },
+  gameHeaderRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 14,
+  },
+  gameKicker: {
+    color: "#AEE8D7",
+    fontSize: 11,
+    fontWeight: "700",
+    letterSpacing: 0.8,
+    textTransform: "uppercase",
+  },
+  gameTitle: {
+    color: "#FFFFFF",
+    fontSize: 24,
+    fontWeight: "800",
+  },
+  scoreBadge: {
+    backgroundColor: "#E7F5EF",
+    borderRadius: 999,
+    width: 52,
+    height: 52,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  scoreValue: {
+    color: "#0E6B55",
+    fontSize: 24,
+    fontWeight: "800",
+  },
+  metaRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginBottom: 12,
+  },
+  metaText: {
+    color: "#DDF5EE",
+    fontSize: 12,
+    fontWeight: "700",
+  },
+  gameBody: {
+    gap: 12,
+  },
+  gamePrompt: {
+    color: "#F5FFFB",
+    fontSize: 15,
+    lineHeight: 22,
+    fontWeight: "600",
+  },
+  levelLabel: {
+    color: "#AEE8D7",
+    fontSize: 12,
+    letterSpacing: 0.9,
+    textTransform: "uppercase",
+    fontWeight: "700",
+  },
+  answerButton: {
+    backgroundColor: "#F2F9F5",
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#DFF1EA",
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+  },
+  answerText: {
+    color: "#12332C",
+    fontSize: 14,
+    lineHeight: 20,
+    fontWeight: "600",
   },
   cardTitle: {
     color: "#12332C",
